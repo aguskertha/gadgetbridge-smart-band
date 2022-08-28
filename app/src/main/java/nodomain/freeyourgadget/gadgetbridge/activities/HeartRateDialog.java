@@ -67,8 +67,14 @@ public class HeartRateDialog extends Dialog {
         if (result instanceof ActivitySample) {
             ActivitySample sample = (ActivitySample) result;
             heart_rate_hr.setVisibility(View.VISIBLE);
-            if (HeartRateUtils.getInstance().isValidHeartRateValue(sample.getHeartRate()))
+            if (HeartRateUtils.getInstance().isValidHeartRateValue(sample.getHeartRate())) {
                 heart_rate_widget_hr_value.setText(String.valueOf(sample.getHeartRate()));
+
+
+//                for (int i = 0; i < 100; i++) {
+//                    System.out.println("HAAAA " + i + " : " + heart_rate_widget_hr_value.getText().toString());
+//                }
+            }
         }
     }
 

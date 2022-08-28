@@ -90,6 +90,7 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -114,8 +115,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import nodomain.freeyourgadget.gadgetbridge.API.APIMessage;
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
+import nodomain.freeyourgadget.gadgetbridge.Listener.CreateSensorRecordListener;
 import nodomain.freeyourgadget.gadgetbridge.R;
+import nodomain.freeyourgadget.gadgetbridge.Repository.SensorRepository;
 import nodomain.freeyourgadget.gadgetbridge.activities.SettingsActivity;
 import nodomain.freeyourgadget.gadgetbridge.activities.devicesettings.DeviceSettingsPreferenceConst;
 import nodomain.freeyourgadget.gadgetbridge.database.DBHandler;
@@ -141,6 +145,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.DeviceService;
 import nodomain.freeyourgadget.gadgetbridge.model.MusicSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.MusicStateSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationSpec;
+import nodomain.freeyourgadget.gadgetbridge.model.SensorRequest;
 import nodomain.freeyourgadget.gadgetbridge.model.Weather;
 import nodomain.freeyourgadget.gadgetbridge.model.WeatherSpec;
 import nodomain.freeyourgadget.gadgetbridge.service.btle.AbstractBTLEDeviceSupport;
@@ -156,7 +161,7 @@ import nodomain.freeyourgadget.gadgetbridge.util.AlarmUtils;
 import nodomain.freeyourgadget.gadgetbridge.util.DateTimeUtils;
 import nodomain.freeyourgadget.gadgetbridge.util.GB;
 
-public class FitProDeviceSupport extends AbstractBTLEDeviceSupport {
+public class FitProDeviceSupport extends AbstractBTLEDeviceSupport implements CreateSensorRecordListener {
     private static final Logger LOG = LoggerFactory.getLogger(FitProDeviceSupport.class);
     public final GBDeviceEventBatteryInfo batteryCmd = new GBDeviceEventBatteryInfo();
     public final GBDeviceEventVersionInfo versionCmd = new GBDeviceEventVersionInfo();
@@ -426,13 +431,17 @@ public class FitProDeviceSupport extends AbstractBTLEDeviceSupport {
         int heartRate = (int) value[19];
         int pressureLow = (int) value[18];
         int pressureHigh = (int) value[17];
-        int spo2 = (int) value[13];
+        int spo2 = (int) value[16];
         int seconds = ByteBuffer.wrap(value, 12, 4).getInt();
         sendAck(value[3], value[1], value[2], value[5]);
 
         if (!(heartRate > 0)) {
             return;
         }
+
+        SensorRequest sensorRequest = new SensorRequest(heartRate, spo2);
+        SensorRepository.createSensorRecord(sensorRequest, this::onCreateSensorRecord);
+//        Toast.makeText(getContext(), "Heart Rate: "+heartRate+" || "+"Oxi Rate: "+spo2, Toast.LENGTH_SHORT);
         handleHR(seconds, heartRate, pressureLow, pressureHigh, spo2);
     }
 
@@ -1546,5 +1555,12 @@ public class FitProDeviceSupport extends AbstractBTLEDeviceSupport {
         Calendar date = GregorianCalendar.getInstance();
         date.set(year, month - 1, day, 0, 0, 0);
         return date;
+    }
+
+    @Override
+    public void onCreateSensorRecord(APIMessage message) {
+//        Toast.makeText(context, message.getMessage(), Toast.LENGTH_SHORT);
+        GB.toast(getContext(), message.getMessage(), Toast.LENGTH_LONG, GB.INFO);
+        Log.d("Sensor Repository", message.getMessage());
     }
 }

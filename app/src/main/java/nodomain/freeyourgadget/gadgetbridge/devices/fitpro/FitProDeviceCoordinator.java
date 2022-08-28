@@ -65,6 +65,7 @@ public class FitProDeviceCoordinator extends AbstractBLEDeviceCoordinator {
                     name.startsWith("M6") ||
                             name.startsWith("M4") ||
                             name.equals("LH716") ||
+                            name.equals("LT716") ||
                             name.equals("Sunset 6") ||
                             name.equals("Watch7") ||
                             name.equals("Fit1900"))

@@ -67,9 +67,12 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import cyanogenmod.weather.util.WeatherUtils;
+import nodomain.freeyourgadget.gadgetbridge.API.APIMessage;
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
+import nodomain.freeyourgadget.gadgetbridge.Listener.CreateHeartRateRecordListener;
 import nodomain.freeyourgadget.gadgetbridge.Logging;
 import nodomain.freeyourgadget.gadgetbridge.R;
+import nodomain.freeyourgadget.gadgetbridge.Repository.HeartRateRepository;
 import nodomain.freeyourgadget.gadgetbridge.activities.SettingsActivity;
 import nodomain.freeyourgadget.gadgetbridge.capabilities.password.PasswordCapabilityImpl;
 import nodomain.freeyourgadget.gadgetbridge.database.DBHandler;
@@ -111,6 +114,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.ActivitySample;
 import nodomain.freeyourgadget.gadgetbridge.model.ActivityUser;
 import nodomain.freeyourgadget.gadgetbridge.model.Alarm;
 import nodomain.freeyourgadget.gadgetbridge.model.CalendarEventSpec;
+import nodomain.freeyourgadget.gadgetbridge.model.HeartRateRequest;
 import nodomain.freeyourgadget.gadgetbridge.util.calendar.CalendarEvent;
 import nodomain.freeyourgadget.gadgetbridge.util.calendar.CalendarManager;
 import nodomain.freeyourgadget.gadgetbridge.model.CallSpec;
@@ -253,7 +257,7 @@ import static nodomain.freeyourgadget.gadgetbridge.model.ActivityUser.PREF_USER_
 import static nodomain.freeyourgadget.gadgetbridge.model.ActivityUser.PREF_USER_YEAR_OF_BIRTH;
 import static nodomain.freeyourgadget.gadgetbridge.service.btle.GattCharacteristic.UUID_CHARACTERISTIC_ALERT_LEVEL;
 
-public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
+public abstract class HuamiSupport extends AbstractBTLEDeviceSupport implements CreateHeartRateRecordListener {
 
     // We introduce key press counter for notification purposes
     private static int currentButtonActionId = 0;
@@ -317,6 +321,8 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
         addSupportedService(GattService.UUID_SERVICE_GENERIC_ACCESS);
         addSupportedService(GattService.UUID_SERVICE_GENERIC_ATTRIBUTE);
         addSupportedService(GattService.UUID_SERVICE_HEART_RATE);
+        addSupportedService(GattService.UUID_SERVICE_PULSE_OXIMETER);
+
         addSupportedService(GattService.UUID_SERVICE_IMMEDIATE_ALERT);
         addSupportedService(GattService.UUID_SERVICE_DEVICE_INFORMATION);
         addSupportedService(GattService.UUID_SERVICE_ALERT_NOTIFICATION);
@@ -2147,16 +2153,39 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
         super.onCharacteristicChanged(gatt, characteristic);
 
         UUID characteristicUUID = characteristic.getUuid();
+        for (int i = 0; i<10; i++){
+            System.out.println("Changed: "+characteristicUUID.toString());
+        }
         if (HuamiService.UUID_CHARACTERISTIC_6_BATTERY_INFO.equals(characteristicUUID)) {
             handleBatteryInfo(characteristic.getValue(), BluetoothGatt.GATT_SUCCESS);
             return true;
-        } else if (MiBandService.UUID_CHARACTERISTIC_REALTIME_STEPS.equals(characteristicUUID)) {
+        }
+        else if (MiBandService.UUID_CHARACTERISTIC_REALTIME_STEPS.equals(characteristicUUID)) {
             handleRealtimeSteps(characteristic.getValue());
             return true;
-        } else if (GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT.equals(characteristicUUID)) {
+        }
+//        else if (GattCharacteristic.UUID_CHARACTERISTIC_PLX_CONTINUOUS_MEASUREMENT.equals(characteristicUUID)) {
+//            for (int i = 0; i<10; i++){
+//                System.out.println("DADA: "+characteristicUUID.toString());
+//            }
+//            return true;
+//        }
+//        UUID_SERVICE_PULSE_OXIMETER
+//        else if(characteristicUUID.toString().equals("00000017-0000-3512-2118-0009af100700")){
+//            for (int i = 0; i<10; i++){
+//                System.out.println("HIHIHI: "+characteristicUUID.toString());
+//            }
+//        }
+        else if (GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT.equals(characteristicUUID)) {
             handleHeartrate(characteristic.getValue());
             return true;
-        } else if (HuamiService.UUID_CHARACTERISTIC_AUTH.equals(characteristicUUID)) {
+        }
+        else if (GattCharacteristic.UUID_CHARACTERISTIC_BLOOD_PRESSURE_MEASUREMENT.equals(characteristicUUID)) {
+
+            return true;
+        }
+//        UUID_CHARACTERISTIC_BLOOD_PRESSURE_MEASUREMENT
+        else if (HuamiService.UUID_CHARACTERISTIC_AUTH.equals(characteristicUUID)) {
             LOG.info("AUTHENTICATION?? " + characteristicUUID);
             logMessageContent(characteristic.getValue());
             return true;
@@ -2178,7 +2207,8 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
                 handleConfigurationInfo(decoded_data);
             }
             return true;
-        } else {
+        }
+        else {
             LOG.info("Unhandled characteristic changed: " + characteristicUUID);
             logMessageContent(characteristic.getValue());
         }
@@ -2190,8 +2220,10 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
     public boolean onCharacteristicRead(BluetoothGatt gatt,
                                         BluetoothGattCharacteristic characteristic, int status) {
         super.onCharacteristicRead(gatt, characteristic, status);
-
         UUID characteristicUUID = characteristic.getUuid();
+        for (int i = 0; i<10; i++){
+            System.out.println("Read: "+characteristicUUID.toString());
+        }
         if (GattCharacteristic.UUID_CHARACTERISTIC_DEVICE_NAME.equals(characteristicUUID)) {
             handleDeviceName(characteristic.getValue(), status);
             return true;
@@ -2222,6 +2254,9 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
     public boolean onCharacteristicWrite(BluetoothGatt gatt,
                                          BluetoothGattCharacteristic characteristic, int status) {
         UUID characteristicUUID = characteristic.getUuid();
+        for (int i = 0; i<10; i++){
+            System.out.println("Write: "+characteristicUUID.toString());
+        }
         if (HuamiService.UUID_CHARACTERISTIC_AUTH.equals(characteristicUUID)) {
             LOG.info("KEY AES SEND");
             logMessageContent(characteristic.getValue());
@@ -2243,10 +2278,16 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
     }
 
     private void handleHeartrate(byte[] value) {
+//        for (int i=0; i<10; i++){
+//            System.out.println("HAHA: +"+value[1]);
+//        }
         if (value.length == 2 && value[0] == 0) {
             int hrValue = (value[1] & 0xff);
+            HeartRateRequest heartRateRequest = new HeartRateRequest(hrValue);
+            HeartRateRepository.createHeartRateRecord(heartRateRequest, this::onCreateHeartRateRecord);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("heart rate: " + hrValue);
+
             }
             RealtimeSamplesSupport realtimeSamplesSupport = getRealtimeSamplesSupport();
             realtimeSamplesSupport.setHeartrateBpm(hrValue);
@@ -2255,6 +2296,11 @@ public abstract class HuamiSupport extends AbstractBTLEDeviceSupport {
                 realtimeSamplesSupport.triggerCurrentSample();
             }
         }
+    }
+
+    @Override
+    public void onCreateHeartRateRecord(APIMessage message) {
+        Toast.makeText(getContext(), message.getMessage(), Toast.LENGTH_SHORT).show();
     }
 
     private void handleRealtimeSteps(byte[] value) {

@@ -23,6 +23,7 @@ package nodomain.freeyourgadget.gadgetbridge.service;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -78,6 +79,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.MusicStateSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationType;
 import nodomain.freeyourgadget.gadgetbridge.model.Reminder;
+import nodomain.freeyourgadget.gadgetbridge.model.SensorRequest;
 import nodomain.freeyourgadget.gadgetbridge.model.WeatherSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.WorldClock;
 import nodomain.freeyourgadget.gadgetbridge.service.receivers.AutoConnectIntervalReceiver;
@@ -86,6 +88,7 @@ import nodomain.freeyourgadget.gadgetbridge.util.DeviceHelper;
 import nodomain.freeyourgadget.gadgetbridge.util.EmojiConverter;
 import nodomain.freeyourgadget.gadgetbridge.util.GB;
 import nodomain.freeyourgadget.gadgetbridge.util.GBPrefs;
+import nodomain.freeyourgadget.gadgetbridge.util.ParcelableUtil;
 import nodomain.freeyourgadget.gadgetbridge.util.language.LanguageUtils;
 import nodomain.freeyourgadget.gadgetbridge.util.Prefs;
 import nodomain.freeyourgadget.gadgetbridge.util.language.Transliterator;
@@ -419,12 +422,27 @@ public class DeviceCommunicationService extends Service implements SharedPrefere
 
     @Override
     public synchronized int onStartCommand(Intent intent, int flags, int startId) {
-
         if (intent == null) {
             LOG.info("no intent");
             return START_NOT_STICKY;
         }
+//        String data = intent.getStringExtra("data");
+        if(intent.getStringExtra("data") != null)
+        {
+            byte[] device = intent.getByteArrayExtra("device");
+            byte[] sensor = intent.getByteArrayExtra("sensor");
+            GBDevice gbDevice = ParcelableUtil.unmarshall(device, GBDevice.CREATOR);
+            SensorRequest sensorRequest = ParcelableUtil.unmarshall(sensor, SensorRequest.CREATOR);
+//            Toast.makeText(this, sensorRequest.getHeartRate()+" <> "+sensorRequest.getOxiRate()+" <> "+gbDevice.getAliasOrName(), Toast.LENGTH_SHORT).show();
+            try {
+                DeviceSupport deviceSupport = getDeviceSupport(gbDevice);
+                deviceSupport.onEnableRealtimeHeartRateMeasurement(true);
+                deviceSupport.onHeartRateTest();
+            } catch (DeviceNotFoundException e) {
+                e.printStackTrace();
+            }
 
+        }
         String action = intent.getAction();
         boolean firstTime = intent.getBooleanExtra(EXTRA_CONNECT_FIRST_TIME, false);
 

@@ -18,6 +18,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package nodomain.freeyourgadget.gadgetbridge.service.btle;
 
+import static nodomain.freeyourgadget.gadgetbridge.devices.fitpro.FitProConstants.CMD_GROUP_RECEIVE_SPORTS_DATA;
+import static nodomain.freeyourgadget.gadgetbridge.devices.fitpro.FitProConstants.RX_HEART_RATE_DATA;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -30,26 +33,33 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import nodomain.freeyourgadget.gadgetbridge.GBApplication;
 import nodomain.freeyourgadget.gadgetbridge.Logging;
+import nodomain.freeyourgadget.gadgetbridge.Scheduler.AlarmReceiver;
+import nodomain.freeyourgadget.gadgetbridge.devices.fitpro.FitProConstants;
 import nodomain.freeyourgadget.gadgetbridge.impl.GBDevice;
 import nodomain.freeyourgadget.gadgetbridge.impl.GBDevice.State;
+import nodomain.freeyourgadget.gadgetbridge.model.SensorRequest;
 import nodomain.freeyourgadget.gadgetbridge.service.DeviceSupport;
 
 /**
@@ -79,6 +89,7 @@ public final class BtLEQueue {
     private final InternalGattCallback internalGattCallback;
     private final InternalGattServerCallback internalGattServerCallback;
     private boolean mAutoReconnect;
+    private AlarmReceiver alarm;
 
     private Thread dispatchThread = new Thread("Gadgetbridge GATT Dispatcher") {
 
@@ -213,6 +224,7 @@ public final class BtLEQueue {
      *
      * @return <code>true</code> whether the connection attempt was successfully triggered and <code>false</code> if that failed or if there is already a connection
      */
+    @RequiresApi(api = Build.VERSION_CODES.M)
     public boolean connect() {
         if (isConnected()) {
             LOG.warn("Ingoring connect() because already connected.");
@@ -223,6 +235,7 @@ public final class BtLEQueue {
                 // Tribal knowledge says you're better off not reusing existing BluetoothGatt connections,
                 // so create a new one.
                 LOG.info("connect() requested -- disconnecting previous connection: " + mGbDevice.getName());
+
                 disconnect();
             }
         }
@@ -256,6 +269,9 @@ public final class BtLEQueue {
         boolean result = mBluetoothGatt != null;
         if (result) {
             setDeviceConnectionState(State.CONNECTING);
+            SensorRequest sensorRequest = new SensorRequest(100, 200);
+            alarm = new AlarmReceiver();
+            alarm.setAlarm(this.mContext, sensorRequest, mGbDevice);
         }
         return result;
     }
@@ -268,6 +284,7 @@ public final class BtLEQueue {
     }
 
     public void disconnect() {
+        alarm.cancelAlarm(this.mContext);
         synchronized (mGattMonitor) {
             LOG.debug("disconnect()");
             BluetoothGatt gatt = mBluetoothGatt;
@@ -604,9 +621,20 @@ public final class BtLEQueue {
             checkWaitingCharacteristic(descriptor.getCharacteristic(), status);
         }
 
+        public void handleHR(byte[] value) {
+            LOG.debug("FitPro handle heart rate measurement");
+            if (value.length < 17) {
+                LOG.debug("FitPro heartrate measurement payload too short");
+                return;
+            }
+
+            int heartRate = (int) value[19];
+            int spo2 = (int) value[16];
+        }
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
+
             if (LOG.isDebugEnabled()) {
                 String content = Logging.formatBytes(characteristic.getValue());
                 LOG.debug("characteristic changed: " + characteristic.getUuid() + " value: " + content);

@@ -43,8 +43,8 @@ def getGitHashShort = { ->
 android {
     compileOptions {
         // for KitKat
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
     compileSdkVersion 29
 
@@ -240,6 +240,10 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-lite:3.0.1'
     implementation "androidx.multidex:multidex:2.0.1"
     implementation 'com.android.volley:volley:1.2.1'
+
+    implementation 'com.squareup.retrofit2:retrofit:2.7.1'
+    implementation 'com.squareup.retrofit2:converter-gson:2.1.0'
+    implementation "com.squareup.okhttp3:logging-interceptor:4.9.0"
 
     // JSR-310 timezones backport for Android, since we're still on java 7
     implementation 'com.jakewharton.threetenabp:threetenabp:1.4.0'
